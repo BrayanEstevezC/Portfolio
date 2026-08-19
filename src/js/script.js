@@ -1,13 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos principales
     const navLinks = document.querySelectorAll('.nav__link');
-    const sections = document.querySelectorAll('section');
+    const sections = document.querySelectorAll('main > section');
     const header = document.querySelector('.header');
     const nav = document.querySelector('.nav');
     const projectCards = document.querySelectorAll('.project-card');
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Animación inicial de la página
     const initPageAnimation = () => {
+        if (prefersReducedMotion) {
+            document.body.style.opacity = '1';
+            header.style.opacity = '1';
+            projectCards.forEach(card => {
+                card.style.opacity = '1';
+                card.style.transform = 'none';
+            });
+            return;
+        }
+
         document.body.style.opacity = '0';
         document.body.style.transition = 'opacity 0.5s ease';
         requestAnimationFrame(() => {
@@ -22,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         projectCards.forEach((card, index) => {
             card.style.opacity = '0';
             card.style.transform = 'translateY(20px)';
-            
+
             setTimeout(() => {
                 card.style.transition = 'all 0.5s ease';
                 card.style.opacity = '1';
@@ -31,20 +42,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // Activa visualmente el link correspondiente
+    const setActiveLink = (sectionId) => {
+        navLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('data-section') === sectionId);
+        });
+    };
+
     // Manejo de la navegación
     const handleNavigation = (e) => {
         e.preventDefault();
-        const clickedLink = e.target.closest('.nav__link'); // Asegura que obtenemos el enlace incluso si se hace clic en el ícono
-        
-        if (!clickedLink) return; // Si no se hizo clic en un enlace, salimos
-        
-        // Actualizar estado activo de los links
-        navLinks.forEach(link => link.classList.remove('active'));
-        clickedLink.classList.add('active');
+        const clickedLink = e.target.closest('.nav__link');
+        if (!clickedLink) return;
 
-        // Obtener y mostrar la sección seleccionada
         const sectionId = clickedLink.getAttribute('data-section');
-        
+        setActiveLink(sectionId);
+
         // Ocultar todas las secciones con animación
         sections.forEach(section => {
             section.classList.add('hidden');
@@ -52,15 +65,19 @@ document.addEventListener('DOMContentLoaded', () => {
             section.style.transition = 'opacity 0.3s ease';
         });
 
-        // Mostrar la sección seleccionada
+        if (sectionId === 'profile') {
+            // "Inicio" no es una <section>, sino el <header>: solo hacemos scroll hacia él
+            header.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+            return;
+        }
+
         const targetSection = document.getElementById(sectionId);
         if (targetSection) {
             targetSection.classList.remove('hidden');
             setTimeout(() => {
                 targetSection.style.opacity = '1';
             }, 50);
-            
-            targetSection.scrollIntoView({ behavior: 'smooth' });
+            targetSection.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
         }
     };
 
@@ -77,7 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
             nav.style.opacity = '1';
         }
 
-        // Actualizar link activo basado en la posición del scroll
+        // Si una sección está oculta (navegación por tabs), no recalculamos el link activo por scroll
+        const anySectionHidden = Array.from(sections).some(section => section.classList.contains('hidden'));
+        if (anySectionHidden) return;
+
+        // Estamos en la parte superior de la página: "Inicio" es lo relevante
+        if (scrollPosition < header.clientHeight / 2) {
+            setActiveLink('profile');
+            return;
+        }
+
         let current = '';
         sections.forEach(section => {
             const sectionTop = section.offsetTop;
@@ -87,26 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('data-section') === current) {
-                link.classList.add('active');
-            }
-        });
-    };
-
-    // Manejar clicks en los botones de proyecto
-    const handleProjectButtons = () => {
-        const projectButtons = document.querySelectorAll('.project-button, .project-link');
-        projectButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const href = button.getAttribute('href');
-                if (href && href !== '#') {
-                    e.preventDefault();
-                    window.open(href, '_blank');
-                }
-            });
-        });
+        if (current) setActiveLink(current);
     };
 
     // Inicialización
@@ -122,17 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Marcar el link de experiencia como activo
-        navLinks.forEach(link => {
-            if (link.getAttribute('data-section') === 'experience') {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
-        });
-
+        setActiveLink('profile');
         initPageAnimation();
-        handleProjectButtons();
     };
 
     // Event Listeners
@@ -140,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         link.addEventListener('click', handleNavigation);
     });
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     // Inicializar
     init();
